@@ -62,12 +62,29 @@ def get_command_category(cmd_line):
         cnt = min(self.command_count / 20.0, 1.0)
         current_state = self.history_helper.get_state(dur, cnt)
 
-        # 2. Get the Agent's Decision
+        # 2. Online Learning: Reward the Agent for its PREVIOUS choice
+        if self.last_state is not None:
+             step_reward = 2.0 # High base reward for engagement
+             if self.last_action == 1: step_reward -= 0.5 # Penalty for DELAY
+             elif self.last_action == 2: step_reward -= 1.5 # Penalty for BLOCK
+             self.rl_agent.memory.push(self.last_state, self.last_action, step_reward, current_state, False)
+             self.rl_agent.update() # Learn immediately
+
+        # 3. Get the Agent's Decision for this CURRENT command
         action = self.rl_agent.get_action(current_state, training=True)
         self.last_state = current_state
         self.last_action = action
         
-        # 3. Execute the Action Route
+        # 4. Log the Decision to Cowrie JSON / Text Logs
+        action_names = ['ALLOW', 'DELAY', 'BLOCK']
+        log.msg(eventid='cowrie.rl.action', 
+                action_code=action, 
+                action_name=action_names[action], 
+                cmd=line,
+                format="RL Agent decided to %(action_name)s command: %(cmd)s"
+        )
+        
+        # 5. Execute the Action Route
         if action == 2: # BLOCK
             self.protocol.terminal.loseConnection()
             return
@@ -80,11 +97,16 @@ def get_command_category(cmd_line):
         self._internal_lineReceived(line)
 
 
+
 # 4.
     def connectionLost(self, reason):
         if self.last_state is not None:
-            # Reward: +10 if session has good duration, -10 if attacker fled early
-            final_reward = 10.0 if self.command_count > 10 else -10.0
+            # Reward: +20 for high engagement, -10 if attacker fled early
+            final_reward = -1.0
+            if self.command_count > 10:
+                final_reward = 20.0
+            elif self.command_count < 2:
+                final_reward = -10.0
             
             # Record terminal transition and update weights
             self.rl_agent.memory.push(
@@ -101,3 +123,4 @@ def get_command_category(cmd_line):
                 self.rl_agent.save("src/cowrie/shell/dqn_cowrie_model.pth")
             except Exception:
                 pass
+
