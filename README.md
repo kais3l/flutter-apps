@@ -3,7 +3,7 @@ import torch
 import numpy as np
 from cowrie.shell.agent import DQNAgent, StateHistoryHelper
 
-# --- RL Global Initialization (Runs once at Boot) ---
+# 1. RL Global Initialization (Runs once at Boot to prevent lag spikes)
 GLOBAL_HISTORY_N = 5
 GLOBAL_RL_AGENT = DQNAgent(state_dim=2 + 6 * GLOBAL_HISTORY_N, action_dim=3)
 try:
@@ -11,6 +11,27 @@ try:
     GLOBAL_RL_AGENT.policy_net.eval()
 except Exception as e:
     pass
+
+# 2. String to Neural-Network Categorization Parsing 
+def get_command_category(cmd_line):
+    if isinstance(cmd_line, bytes):
+        cmd = cmd_line.decode('utf-8', errors='ignore').strip().split()[0]
+    else:
+        cmd = cmd_line.strip().split()[0]
+    
+    fs_cmds = ['ls', 'cd', 'pwd', 'cat', 'rm', 'mv', 'cp', 'mkdir', 'rmdir', 'touch']
+    net_cmds = ['wget', 'curl', 'ssh', 'ftp', 'nc', 'telnet', 'ping']
+    sys_cmds = ['uname', 'id', 'whoami', 'ps', 'top', 'free', 'df', 'du']
+    exec_cmds = ['chmod', 'chown', 'sudo', 'su', 'sh', 'bash', './']
+    edit_cmds = ['vi', 'vim', 'nano', 'echo', 'sed', 'awk']
+    
+    if cmd in fs_cmds: return 0
+    if cmd in net_cmds: return 1
+    if cmd in sys_cmds: return 2
+    if cmd in exec_cmds: return 3
+    if cmd in edit_cmds: return 4
+    return 5 
+
 
 # 2.
     def __init__(self, ...):
