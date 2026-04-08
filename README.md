@@ -3,18 +3,23 @@ import torch
 import numpy as np
 from cowrie.shell.agent import DQNAgent, StateHistoryHelper
 
+# --- RL Global Initialization (Runs once at Boot) ---
+GLOBAL_HISTORY_N = 5
+GLOBAL_RL_AGENT = DQNAgent(state_dim=2 + 6 * GLOBAL_HISTORY_N, action_dim=3)
+try:
+    GLOBAL_RL_AGENT.load("src/cowrie/shell/dqn_cowrie_model.pth") 
+    GLOBAL_RL_AGENT.policy_net.eval()
+except Exception as e:
+    pass
+
 # 2.
     def __init__(self, ...):
         # ... existing cowrie initialization code ...
         
-        # RL Agent Initialization
-        self.history_n = 5
+        # RL Agent Connection
+        self.history_n = GLOBAL_HISTORY_N
         self.history_helper = StateHistoryHelper(n=self.history_n)
-        
-        # Dynamic State Dimension (2 Metrics + N Historical Categorizations)
-        self.rl_agent = DQNAgent(state_dim=2 + 6 * self.history_n, action_dim=3)
-        self.rl_agent.load("src/cowrie/shell/dqn_cowrie_model.pth") 
-        self.rl_agent.policy_net.eval()
+        self.rl_agent = GLOBAL_RL_AGENT
         
         # Session Metrics
         self.session_duration = 0
@@ -22,8 +27,8 @@ from cowrie.shell.agent import DQNAgent, StateHistoryHelper
         self.last_state = None
         self.last_action = None        
 
-# 3.
 
+# 3.
     def lineReceived(self, line: str) -> None:
         self.session_duration += 1
         self.command_count += 1
@@ -55,6 +60,7 @@ from cowrie.shell.agent import DQNAgent, StateHistoryHelper
         # 0: ALLOW - Standard processing
         self._internal_lineReceived(line)
 
+
 # 4.
     def connectionLost(self, reason):
         if self.last_state is not None:
@@ -70,6 +76,10 @@ from cowrie.shell.agent import DQNAgent, StateHistoryHelper
                 True
             )
             self.rl_agent.update()
+            
+            # Save the "Smarter" weights to disk
+            self.rl_agent.save("src/cowrie/shell/dqn_cowrie_model.pth")
+
             
             # Save the "Smarter" weights to disk
             self.rl_agent.save("src/cowrie/shell/dqn_cowrie_model.pth")
