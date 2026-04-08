@@ -37,12 +37,12 @@ def get_command_category(cmd_line):
     def __init__(self, ...):
         # ... existing cowrie initialization code ...
         
-        # RL Agent Connection
+        # RL Agent Connection (Bind to global Singleton)
         self.history_n = GLOBAL_HISTORY_N
         self.history_helper = StateHistoryHelper(n=self.history_n)
         self.rl_agent = GLOBAL_RL_AGENT
         
-        # Session Metrics
+        # Session Tracking Metrics
         self.session_duration = 0
         self.command_count = 0
         self.last_state = None
@@ -54,7 +54,7 @@ def get_command_category(cmd_line):
         self.session_duration += 1
         self.command_count += 1
         
-        # 1. Evaluate the State
+        # 1. Update State History using 5-Command sliding window
         cat_idx = get_command_category(line)
         self.history_helper.add_command(cat_idx)
         
@@ -63,22 +63,20 @@ def get_command_category(cmd_line):
         current_state = self.history_helper.get_state(dur, cnt)
 
         # 2. Get the Agent's Decision
-        # Epsilon can be tweaked here for exploitation vs exploration
         action = self.rl_agent.get_action(current_state, training=True)
         self.last_state = current_state
         self.last_action = action
         
-        # 3. Execute the Action 
+        # 3. Execute the Action Route
         if action == 2: # BLOCK
             self.protocol.terminal.loseConnection()
             return
         elif action == 1: # DELAY
             from twisted.internet import reactor
-            # Delays execution by 2.0 seconds
             reactor.callLater(2.0, self._internal_lineReceived, line)
             return
         
-        # 0: ALLOW - Standard processing
+        # 0: ALLOW Default Bypass
         self._internal_lineReceived(line)
 
 
@@ -99,8 +97,7 @@ def get_command_category(cmd_line):
             self.rl_agent.update()
             
             # Save the "Smarter" weights to disk
-            self.rl_agent.save("src/cowrie/shell/dqn_cowrie_model.pth")
-
-            
-            # Save the "Smarter" weights to disk
-            self.rl_agent.save("src/cowrie/shell/dqn_cowrie_model.pth")
+            try:
+                self.rl_agent.save("src/cowrie/shell/dqn_cowrie_model.pth")
+            except Exception:
+                pass
