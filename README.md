@@ -33,6 +33,7 @@ def get_command_category(cmd_line):
     return 5 
 
 
+
 # 2.
     def __init__(self, ...):
         # ... existing cowrie initialization code ...
@@ -47,6 +48,7 @@ def get_command_category(cmd_line):
         self.command_count = 0
         self.last_state = None
         self.last_action = None        
+     
 
 
 # 3.
@@ -68,7 +70,8 @@ def get_command_category(cmd_line):
              if self.last_action == 1: step_reward -= 0.5 # Penalty for DELAY
              elif self.last_action == 2: step_reward -= 1.5 # Penalty for BLOCK
              self.rl_agent.memory.push(self.last_state, self.last_action, step_reward, current_state, False)
-             self.rl_agent.update() # Learn immediately
+             # NOTE: Live updating disabled. Let train_offline.py handle batch learning from JSON logs.
+
 
         # 3. Get the Agent's Decision for this CURRENT command
         action = self.rl_agent.get_action(current_state, training=True)
@@ -98,6 +101,7 @@ def get_command_category(cmd_line):
 
 
 
+
 # 4.
     def connectionLost(self, reason):
         if self.last_state is not None:
@@ -116,11 +120,11 @@ def get_command_category(cmd_line):
                 self.last_state, 
                 True
             )
-            self.rl_agent.update()
             
             # Save the "Smarter" weights to disk
             try:
                 self.rl_agent.save("src/cowrie/shell/dqn_cowrie_model.pth")
             except Exception:
                 pass
+
 
